@@ -31,12 +31,11 @@ h2.sec{font-family:"Bebas Neue",Impact,sans-serif;font-size:22px;letter-spacing:
 .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 /* tarjeta con giro */
 .flip{perspective:1600px;margin-bottom:12px}
-.flip-in{display:grid;grid-template-columns:minmax(0,1fr);transition:transform .6s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
-.flip.flipped .flip-in{transform:rotateY(180deg)}
-.flip:not(.flipped) .face.back{pointer-events:none}
-.flip.flipped .face.front{pointer-events:none}
-.face{grid-area:1/1;min-width:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
-.face.back{transform:rotateY(180deg);background:#fff4ea}
+.flip-in{transition:transform .22s ease-in-out;transform:perspective(1400px) rotateY(0deg)}
+.flip.turning .flip-in{transform:perspective(1400px) rotateY(90deg)}
+.flip:not(.flipped) .face.back,.flip.flipped .face.front{display:none!important}
+.face{min-width:0;background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.face.back{background:#fff4ea}
 .wordrow{display:flex;align-items:center;justify-content:center;gap:12px;margin:2px 0 14px}
 .word{font-family:"Bebas Neue",Impact,sans-serif;font-size:64px;line-height:.95;letter-spacing:.005em;text-align:center;word-break:break-word}
 .spk{width:38px;height:38px;flex:none;border-radius:50%;border:1px solid var(--acc-line);background:#fff7f0;display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
@@ -334,7 +333,13 @@ function go(t){
   window.scrollTo(0,0);
   if(t==="hoy") renderHoy(); else renderProg();
 }
-const setView = h => { $("#view").innerHTML=h; };
+let FLIP_IN=false;
+const setView = h => {
+  $("#view").innerHTML=h;
+  if(FLIP_IN){ FLIP_IN=false; const f=$("#view .flip"); if(f){ f.classList.add("turning"); void f.offsetWidth; requestAnimationFrame(()=>f.classList.remove("turning")); } }
+};
+/* gira una tarjeta: la pone de canto, y luego la vuelve a pintar del otro lado */
+function turnThen(el, cb){ if(!el){ cb(); return; } el.classList.add("turning"); setTimeout(()=>{ FLIP_IN=true; cb(); }, 220); }
 function showNotice(t){ $("#notice").innerHTML = t?`<div class="note">${esc(t)}</div>`:""; }
 
 /* ================= HOY ================= */
@@ -532,9 +537,8 @@ function bindTest(rerender){
     T.said=typed;
     T.res = T.alts.length ? bestCheck(id, T.alts) : (T.dontKnow?null:{level:"empty",heard:""});
     T.flipped=true;
-    $("#tflip").classList.add("flipped");
     speak(ROWS[id][0]);
-    setTimeout(rerender, 620);
+    turnThen($("#tflip"), rerender);
   };
   T.flipToBack=flipToBack;
   $("#bRec").onclick=e=>{ e.stopPropagation(); startMic(flipToBack); };
@@ -542,7 +546,7 @@ function bindTest(rerender){
   inp.oninput=()=>{ T.said=inp.value; T.alts=null; };
   inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); inp.blur(); flipToBack(); } };
   $("#tFront").onclick=()=>flipToBack();
-  $("#tBack").onclick=()=>{ if(!T.flipped) return; T.flipped=false; T.dontKnow=false; $("#tflip").classList.remove("flipped"); setTimeout(rerender, 620); };
+  $("#tBack").onclick=()=>{ if(!T.flipped) return; T.flipped=false; T.dontKnow=false; turnThen($("#tflip"), rerender); };
   const sp=$("#bSpkT"); if(sp) sp.onclick=e=>{ e.stopPropagation(); speak(ROWS[id][0]); };
 }
 
@@ -618,7 +622,9 @@ async function renderLearn(g, id, head){
   $("#bSpk").onclick=()=>speak(r[0]); const s2=$("#bSpk2"); if(s2) s2.onclick=()=>speak(r[0]);
   const bind=(sel,key)=>{ $(sel).oninput=e=>{ MINE[id]=Object.assign({},MINE[id]||{}, {[key]:e.target.value}); saveMineSoon(id); }; };
   bind("#fImg","img"); bind("#fAidw","aidw"); bind("#fAid","aid");
-  $("#bFlip").onclick=()=>{ POS_FLIP=!POS_FLIP; $("#flip").classList.toggle("flipped",POS_FLIP); $("#bFlip").innerHTML=POS_FLIP?ICON_EYEOFF+" Ocultar AID sugerido":ICON_EYE+" Ver AID sugerido"; };
+  $("#bFlip").onclick=()=>{ POS_FLIP=!POS_FLIP; const f=$("#flip"); f.classList.add("turning");
+    setTimeout(()=>{ f.classList.toggle("flipped",POS_FLIP); void f.offsetWidth; f.classList.remove("turning"); },220);
+    $("#bFlip").innerHTML=POS_FLIP?ICON_EYEOFF+" Ocultar AID sugerido":ICON_EYE+" Ver AID sugerido"; };
   const u=$("#bUse"); if(u) u.onclick=()=>{
     const cur=MINE[id]||{};
     MINE[id]={img:cur.img||r[3]||"", aidw:cur.aidw||r[4]||"", aid:cur.aid||r[5]||""};
